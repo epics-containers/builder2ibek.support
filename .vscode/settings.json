@@ -1,0 +1,18 @@
+{
+    "python.testing.pytestArgs": [
+        "--cov=ibek",
+        "--cov-report",
+        "xml:cov.xml"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.defaultInterpreterPath": "/dls_sw/prod/tools/RHEL7-x86_64/Python/2-7-13/prefix/bin/python2.7",
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "never",
+            "source.organizeImports.ruff": "explicit",
+            "source.black": "explicit"
+        }
+    }
+}

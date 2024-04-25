@@ -1,0 +1,40 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // To use this debug configuration you must have access to dls-python
+            // (python 2.7) and downgrade vscode Python extension to 2021.9.1246542782
+            "name": "builder2ibek",
+            "type": "python",
+            "python": "/dls_sw/prod/tools/RHEL7-x86_64/defaults/bin/dls-python",
+            "request": "launch",
+            "program": "builder2ibek.support.py",
+            "console": "integratedTerminal",
+            "args": [
+                "/dls_sw/prod/R3.14.12.7/support/quadEM/9-4dls1",
+                "../debug.ibek.support.yaml"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Debug example test",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${file}",
+            "purpose": [
+                "debug-test"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                // The default config in pyproject.toml's "[tool.pytest.ini_options]" adds coverage.
+                // Cannot have coverage and debugging at the same time.
+                // https://github.com/microsoft/vscode-python/issues/693
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+        }
+    ]
+}
