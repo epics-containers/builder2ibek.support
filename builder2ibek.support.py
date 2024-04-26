@@ -525,13 +525,14 @@ def parse_args():
         help=(
             "override a MockArg argument value in the builder class"
             " using the form 'arg_num:value'"
+            " multiple values can be passed comma separated"
         ),
     )
     args = parser.parse_args()
 
     arg_overrides = {}
     if args.overrides:
-        for o in args.overrides.split(" "):
+        for o in args.overrides.split(","):
             m = arg_values_re.match(o)
             assert len(m.groups()) == 2, "Invalid argument format %s" % o
             value = m.group(2)
@@ -549,6 +550,8 @@ def parse_args():
 if __name__ == "__main__":
     support_module_path, filename, arg_value_overrides = parse_args()
 
+    if not os.path.exists(support_module_path):
+        raise ValueError("Support module folder does not exist")
     etc_folder = support_module_path + "/etc"
     if not os.path.exists(etc_folder):
         raise ValueError("The support module path must contain an etc folder")
