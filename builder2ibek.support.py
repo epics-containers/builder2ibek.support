@@ -46,13 +46,14 @@ is_float_re = re.compile(r"[-+]?\d*\.\d+([eE][-+]?\d+)?$")
 # this monster regex finds strings between '' or "" (oh boy!)
 extract_printed_strings_re = re.compile(r"([\"'])((?:\\\1|(?:(?!\1))[\S\s])*)(?:\1)")
 # extract print with \ separated lines with second group containing remaining lines
-extract_multiline_print_re = re.compile(r" *\(? *([\"'][\S\s]*\\[\r\n]+[^\r\n]+)([\S\s]*)")
+extract_multiline_print_re = re.compile(r" *\(? *((?:[\"'][\S\s]*\\[\n]+[^\n]+)|.+)(?:\.format *\([^\)]+\))?([\S\s]*)")
 # match substitution fields in print statements e.g. %(name)s or {name:s} etc
 macros_re = re.compile(r"(?:(?:{)|(?:%\())([^:\)}]*)(?:(?:(?::.)?})|(?:\).))")
 # replace matched fields with jinja2 style macros
 macro_to_jinja_re = r"{{\1}}"
 
-MISSING = "TODO - MISSING ARGS: "
+MISSING = "# TODO - MISSING ARGS: "
+NON_PRINT = "\n # WARNING - non print commands in Initialise not parsed"
 
 
 class ArgInfo:
@@ -335,11 +336,11 @@ class Builder2Support:
 
         # extract the set of templates with substitutions for the new builder object
         while all_substitutions:
-            database = ordereddict()
-            databases.append(database)
 
             template, substitutions = all_substitutions.popitem()
             if len(substitutions[1]) > 0:
+                database = ordereddict()
+                databases.append(database)
                 first_substitution = substitutions[1][0]
 
                 database["file"] = template
@@ -362,7 +363,7 @@ class Builder2Support:
                 # are brought in by instantiating their parent so do not need to
                 # appear in the support yaml
                 print(
-                    "TODO:- No substitutions for %s " % template
+                    "NOTE: No substitutions for %s " % template
                     + "- this should be included by the above template"
                 )
 
@@ -386,14 +387,14 @@ class Builder2Support:
             print_strings = func_text.split("print")[1:]
 
             command_args = []
+            warnings = False
 
             commands = ""
             for print_string in print_strings:
                 matches = extract_multiline_print_re.findall(print_string)
-                # I'm assuming that this will find something - maybe should guard this?
-                print_lines = matches[0][0]
+                print_string = matches[0][0]
                 extra = None if len(matches[0]) == 1 else matches[0][1]
-                matches = extract_printed_strings_re.findall(print_lines)
+                matches = extract_printed_strings_re.findall(print_string)
                 if matches:
                     line = ""
                     for match in matches:
@@ -401,14 +402,19 @@ class Builder2Support:
                         line += macros_re.sub(macro_to_jinja_re, match[1])
                     commands += line + "\n"
                 if extra is not None and extra.strip() != "":
-                    print("WARNING: could not parse %s" % extra)
+                    warnings = True
             if commands:
                 script_text = PreservedScalarString(commands)
                 missing = set(command_args) - set(arginfo.all_args)
-                comment = MISSING + ", ".join(missing) if missing else None
+                comment = MISSING + ", ".join(missing) if missing else ""
 
                 # remove spurious \n from the script text (not newlines)
                 script_text = script_text.replace(r"\n", "")
+
+                if warnings:
+                    comment += NON_PRINT
+                if comment == "":
+                    comment = None
                 script_item.insert(3, "value", script_text, comment=comment)
 
             script.append(script_item)
