@@ -174,7 +174,7 @@ defs:
       This plugin instantiates 11 stats plugins for Current, Sum, Diff and Pos
     args:
 
-      - type: str
+      - type: int
         name: STAT_NCHAN
         description: |-
           Template argument
@@ -194,7 +194,7 @@ defs:
         description: |-
           The prefix for plugin asyn port names
 
-      - type: str
+      - type: int
         name: STAT_XSIZE
         description: |-
           Template argument

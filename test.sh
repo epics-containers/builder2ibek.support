@@ -24,6 +24,7 @@ fi
 ./_run_test.sh devIocStats 3-1-14dls3-3
 ./_run_test.sh lakeshore340 2-6
 ./_run_test.sh ipac 2-8dls4-8-1
+./_run_test.sh DLS8515 0-11 carrier.MaxIpSlots:4
 
 # now verify that there have been no changes since last results were committed
 CHANGES=$(git diff examples)

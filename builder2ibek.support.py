@@ -178,6 +178,8 @@ class ArgInfo:
         Support overriding of the guessed values from the command line.
         """
 
+        mock_over = mock_overrides.get(name, {})
+
         if name == self.unique_name:
             typ = "id"
             if default == "":
@@ -201,9 +203,7 @@ class ArgInfo:
             value = default or 1.0
         elif "iocbuilder.modules" in str(details.typ):
             typ = "object"
-            print("SELF:", self.__dict__)
-            # value = MagicMock(**self.mock_overrides)
-            value = MagicMock()
+            value = MagicMock(**mock_over)
         else:
             typ = "UNKNOWN TODO TODO"
 
@@ -215,17 +215,17 @@ class ArgInfo:
         # TODO needs more investigation
         if name == "CS":
             typ = "int"
-            value = MagicMock()
+            value = MagicMock(**mock_over)
 
         if name not in self.builder_args:
             if ArgInfo.arg_num in arg_value_overrides:
                 value = arg_value_overrides[ArgInfo.arg_num]
                 try:
                     value = int(value)
-                except ValueError:
+                except (ValueError, TypeError):
                     try:
                         value = float(default)
-                    except ValueError:
+                    except (ValueError, TypeError):
                         pass
                 typ = type(value).__name__
 
@@ -530,9 +530,11 @@ def parse_override(override):
         arg_value_match = mock_override_re.match(override)
         if arg_value_match:
             mock_name = arg_value_match.group(1)
-            property = arg_value_match.group(2)
+            prop = arg_value_match.group(2)
             value = arg_value_match.group(3)
-            mock_overrides[mock_name] = {property: value}
+            if mock_name not in mock_overrides:
+                mock_overrides[mock_name] = {}
+            mock_overrides[mock_name][prop] = value
         else:
             raise ValueError("Invalid override format: %s" % override)
 

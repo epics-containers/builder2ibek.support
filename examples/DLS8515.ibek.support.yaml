@@ -1,0 +1,240 @@
+# yaml-language-server: $schema=https://github.com/epics-containers/ibek/releases/download/1.2.0/ibek.support.schema.json
+
+module: DLS8515
+
+defs:
+
+  - name: DLS8516
+    description: |-
+      Configure a Hy8516 ip module for RS422/RS485 serial communication
+    args:
+
+      - type: object
+        name: carrier
+        description: |-
+          Carrier card
+
+      - type: int
+        name: ipslot
+        description: |-
+          IP slot in carrier
+
+      - type: str
+        name: prefix
+        description: |-
+          Prefix to create serial ports as, e.g. "ty" to create "/ty/70/0".
+        default: ty
+
+    pre_init:
+      - when: first
+        value: |
+          # {{configString}}(card, carrier, vector, prefix)
+ # TODO - MISSING ARGS: configString
+
+      - value: |
+          {{configString}}({{cardid}}, {{IPACid}}, {{vector}}, "{{prefix}}")
+ # TODO - MISSING ARGS: configString, IPACid, vector, cardid
+
+  - name: DLS8516channel
+    description: |-
+      Setup a single channel on a DLS8516 for RS422/RS485 serial
+          communication
+    args:
+
+      - type: object
+        name: card
+        description: |-
+          Hy8515 card
+
+      - type: int
+        name: channel
+        description: |-
+          Channel number
+
+      - type: enum
+        name: baud
+        description: |-
+          Baud rate
+        default: 9600
+        values:
+          '4800':
+          '9600':
+          '115200':
+          '19200':
+          '38400':
+          '1200':
+          '2400':
+          '230400':
+          '57600':
+
+      - type: enum
+        name: data
+        description: |-
+          Number of data bits
+        default: 8
+        values:
+          '8':
+          '5':
+          '7':
+          '6':
+
+      - type: enum
+        name: parity
+        description: |-
+          Parity: None, Even, Odd
+        default: N
+        values:
+          E:
+          O:
+          N:
+
+      - type: enum
+        name: stop
+        description: |-
+          Number of stop bits
+        default: 1
+        values:
+          '1':
+          '2':
+
+      - type: enum
+        name: flow
+        description: |-
+          Flow Control: None, Software (xon/xoff), Hardware (rts/cts)
+        default: N
+        values:
+          H:
+          S:
+          N:
+
+      - type: int
+        name: delay
+        description: |-
+          Delay in bit time (0-15) after transmit before Tx lines are dropped
+        default: 0
+
+      - type: bool
+        name: fullduplex
+        description: |-
+          If True then run in full duplex (4 wire RS422) mode, otherwise run in half duplex (2 wire RS485)
+        default: false
+
+    pre_init:
+      - when: first
+        value: |
+          # DLS8516DevConfigure(device, baud, data, stop, parity, flow, delay, duplex)
+
+      - value: |
+          DLS8516DevConfigure("{{device}}", {{baud}}, {{data}}, {{stop}}, \'{{parity}}\', \'{{flow}}\', {{delay}}, {{fullduplex}})
+ # TODO - MISSING ARGS: device
+
+  - name: DLS8515
+    description: |-
+      Configure a Hy8515 ip module for RS232 serial communication
+    args:
+
+      - type: object
+        name: carrier
+        description: |-
+          Carrier card
+
+      - type: int
+        name: ipslot
+        description: |-
+          IP slot in carrier
+
+      - type: str
+        name: prefix
+        description: |-
+          Prefix to create serial ports as, e.g. "ty" to create "/ty/70/0".
+        default: ty
+
+    pre_init:
+      - when: first
+        value: |
+          # {{configString}}(card, carrier, vector, prefix)
+ # TODO - MISSING ARGS: configString
+
+      - value: |
+          {{configString}}({{cardid}}, {{IPACid}}, {{vector}}, "{{prefix}}")
+ # TODO - MISSING ARGS: configString, IPACid, vector, cardid
+
+  - name: DLS8515channel
+    description: |-
+      Setup a single channel on a DLS8515 for RS232 serial communication
+    args:
+
+      - type: object
+        name: card
+        description: |-
+          Hy8515 card
+
+      - type: int
+        name: channel
+        description: |-
+          Channel number
+
+      - type: enum
+        name: baud
+        description: |-
+          Baud rate
+        default: 9600
+        values:
+          '4800':
+          '9600':
+          '115200':
+          '19200':
+          '38400':
+          '1200':
+          '2400':
+          '230400':
+          '57600':
+
+      - type: enum
+        name: data
+        description: |-
+          Number of data bits
+        default: 8
+        values:
+          '8':
+          '5':
+          '7':
+          '6':
+
+      - type: enum
+        name: parity
+        description: |-
+          Parity: None, Even, Odd
+        default: N
+        values:
+          E:
+          O:
+          N:
+
+      - type: enum
+        name: stop
+        description: |-
+          Number of stop bits
+        default: 1
+        values:
+          '1':
+          '2':
+
+      - type: enum
+        name: flow
+        description: |-
+          Flow Control: None, Software (xon/xoff), Hardware (rts/cts)
+        default: N
+        values:
+          H:
+          S:
+          N:
+
+    pre_init:
+      - when: first
+        value: |
+          # DLS8515DevConfigure(device, baud, data, stop, parity, flow)
+
+      - value: |
+          DLS8515DevConfigure("{{device}}", {{baud}}, {{data}}, {{stop}}, \'{{parity}}\', \'{{flow}}\')
+ # TODO - MISSING ARGS: device
