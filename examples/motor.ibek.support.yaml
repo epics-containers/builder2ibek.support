@@ -295,17 +295,6 @@ defs:
           set to '#' to comment out alh lines
         default: None
 
-      - type: str
-        name: gda_name
-        description: |-
-          Name to export this as to GDA
-
-      - type: str
-        name: gda_desc
-        description: |-
-          Description to export this as to GDA
-        default: $(DESC)
-
     databases:
 
       - file: $(MOTOR)/db/basic_asyn_motor.template
@@ -433,16 +422,6 @@ defs:
         name: name
         description: |-
           Object name and gui association name
-
-      - type: str
-        name: gda_name
-        description: |-
-          Name to export this as to GDA
-
-      - type: str
-        name: gda_desc
-        description: |-
-          Description to export this as to GDA
 
     databases:
 

@@ -40,16 +40,6 @@ defs:
         description: |-
           Object and gui association name
 
-      - type: str
-        name: gda_name
-        description: |-
-          Name in gda interface file (Default = )
-
-      - type: str
-        name: gda_desc
-        description: |-
-          Description in gda interface file (Default = )
-
       - type: int
         name: LOOP
         description: |-

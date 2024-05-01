@@ -37,16 +37,16 @@ from ruamel.yaml.comments import CommentedMap as ordereddict  # noqa: E402 isort
 
 
 # regular expressions for extracting information from builder classes
-# regular expressions for extracting information from builder classes
 class_name_re = re.compile(r"(?:type|class) '(.*)'")
-arg_values_re = re.compile(r"(\d*):(.*)")
 is_int_re = re.compile(r"[-+]?\d+$")
 is_float_re = re.compile(r"[-+]?\d*\.\d+([eE][-+]?\d+)?$")
 
 # this monster regex finds strings between '' or "" (oh boy!)
 extract_printed_strings_re = re.compile(r"([\"'])((?:\\\1|(?:(?!\1))[\S\s])*)(?:\1)")
 # extract print with \ separated lines with second group containing remaining lines
-extract_multiline_print_re = re.compile(r" *\(? *((?:[\"'][\S\s]*\\[\n]+[^\n]+)|.+)(?:\.format *\([^\)]+\))?([\S\s]*)")
+extract_multiline_print_re = re.compile(
+    r" *\(? *((?:[\"'][\S\s]*\\[\n]+[^\n]+)|.+)(?:\.format *\([^\)]+\))?([\S\s]*)"
+)
 # match substitution fields in print statements e.g. %(name)s or {name:s} etc
 macros_re = re.compile(r"(?:(?:{)|(?:%\())([^:\)}]*)(?:(?:(?::.)?})|(?:\).))")
 # replace matched fields with jinja2 style macros
@@ -54,6 +54,10 @@ macro_to_jinja_re = r"{{\1}}"
 
 MISSING = "# TODO - MISSING ARGS: "
 NON_PRINT = "\n # WARNING - non print commands in Initialise not parsed"
+
+# global argument override dictionaries
+arg_value_overrides = {}
+mock_overrides = {}
 
 
 class ArgInfo:
@@ -66,14 +70,12 @@ class ArgInfo:
     name_re = re.compile(r"iocbuilder\.modules\.(?:.*)\.(.*)")
     arg_num = 1
 
-    def __init__(self, name, unique_name, description, overrides):
+    def __init__(self, name, unique_name, description):
         """
         Unique name is the argument that uniquely identifies
         """
         # unique name for the builder class
         self.unique_name = unique_name
-        # value overrides for arguments
-        self.overrides = overrides
 
         # list of ordereddict args to be used in the YAML
         self.yaml_args = []
@@ -130,7 +132,9 @@ class ArgInfo:
 
             typ, default = self.make_arg(arg_name, details, default)
 
-            # extract the name
+            # remove gda_name and desc as redundant
+            if arg_name in ["gda_name", "gda_desc"]:
+                continue
 
             # extract the description
             matches = self.description_re.findall(details.desc)
@@ -197,6 +201,8 @@ class ArgInfo:
             value = default or 1.0
         elif "iocbuilder.modules" in str(details.typ):
             typ = "object"
+            print("SELF:", self.__dict__)
+            # value = MagicMock(**self.mock_overrides)
             value = MagicMock()
         else:
             typ = "UNKNOWN TODO TODO"
@@ -205,15 +211,22 @@ class ArgInfo:
             value = default or details.labels[0]
             typ = "enum"
 
-        # special case because CS in pmac comes in as even though it is an int
+        # special case because CS in pmac comes int as even though it is an int
         # TODO needs more investigation
         if name == "CS":
             typ = "int"
             value = MagicMock()
 
         if name not in self.builder_args:
-            if ArgInfo.arg_num in self.overrides:
-                value = self.overrides[ArgInfo.arg_num]
+            if ArgInfo.arg_num in arg_value_overrides:
+                value = arg_value_overrides[ArgInfo.arg_num]
+                try:
+                    value = int(value)
+                except ValueError:
+                    try:
+                        value = float(default)
+                    except ValueError:
+                        pass
                 typ = type(value).__name__
 
             self.builder_args[name] = value
@@ -230,11 +243,8 @@ class ArgInfo:
 
 
 class Builder2Support:
-    arg_value_overrides = {}
-
-    def __init__(self, support_module_path, arg_value_overrides):
+    def __init__(self, support_module_path):
         self.support_module_path = support_module_path
-        Builder2Support.arg_value_overrides = arg_value_overrides
         self.yaml_tree = ordereddict()
         self.builder_module, self.builder_classes = self._configure()
         self.dbds = set()
@@ -301,7 +311,6 @@ class Builder2Support:
             name,
             getattr(builder_class, "UniqueName", "name"),
             getattr(builder_class, "__doc__"),
-            self.arg_value_overrides,
         )
 
         for a_cls in (builder_class,) + builder_class.Dependencies:
@@ -336,7 +345,6 @@ class Builder2Support:
 
         # extract the set of templates with substitutions for the new builder object
         while all_substitutions:
-
             template, substitutions = all_substitutions.popitem()
             if len(substitutions[1]) > 0:
                 database = ordereddict()
@@ -504,6 +512,31 @@ class Builder2Support:
             yaml.dump(self.yaml_tree, f, transform=tidy_up)
 
 
+arg_override_re = re.compile(r"(\d+):(.*)")
+mock_override_re = re.compile(r"(.*)\.(.*):(.*)")
+
+
+def parse_override(override):
+    """
+    Parse the command line overrides for arguments and mock object override
+    values
+    """
+    arg_value_match = arg_override_re.match(override)
+    if arg_value_match:
+        arg_num = int(arg_value_match.group(1))
+        value = arg_value_match.group(2)
+        arg_value_overrides[arg_num] = arg_value_match.group(2)
+    else:
+        arg_value_match = mock_override_re.match(override)
+        if arg_value_match:
+            mock_name = arg_value_match.group(1)
+            property = arg_value_match.group(2)
+            value = arg_value_match.group(3)
+            mock_overrides[mock_name] = {property: value}
+        else:
+            raise ValueError("Invalid override format: %s" % override)
+
+
 def parse_args():
     """
     Parse the command line arguments
@@ -512,43 +545,32 @@ def parse_args():
         prog="builder2ibek",
         description="A tool for converting builder.py classes to ibek support YAML",
     )
-    parser.add_argument("path", help="path to the support module")
+    parser.add_argument("path", help="path to the support module root folder")
+    parser.add_argument("yaml", help="path to the YAML file to be generated")
     parser.add_argument(
-        "yaml",
-        help="path to the YAML file to be generated (default: ibek.support.yaml)",
-        default="ibek.support.yaml",
-        nargs="?",
-    )
-    parser.add_argument(
-        "-o",
-        "--overrides",
+        "overrides",
+        type=parse_override,
         help=(
-            "override a MockArg argument value in the builder class"
-            " using the form 'arg_num:value'"
-            " multiple values can be passed comma separated"
+            "Override properties on any objects in arguments using "
+            "the form 'arg_number:value'."
+            "Or override a MockArg argument property in the builder class"
+            "using the form 'MockArgName.property:value'. "
+            "Multiple values can be passed separated by a spaces"
         ),
+        nargs="*",
     )
     args = parser.parse_args()
 
-    arg_overrides = {}
-    if args.overrides:
-        for o in args.overrides.split(","):
-            m = arg_values_re.match(o)
-            assert len(m.groups()) == 2, "Invalid argument format %s" % o
-            value = m.group(2)
-            if re.match(is_int_re, value):
-                value = int(value)
-            elif re.match(is_float_re, value):
-                value = float(value)
-            arg_overrides[int(m.group(1))] = value
-
     yaml_file = args.yaml
 
-    return args.path, yaml_file, arg_overrides
+    return args.path, yaml_file
 
 
 if __name__ == "__main__":
-    support_module_path, filename, arg_value_overrides = parse_args()
+    (
+        support_module_path,
+        filename,
+    ) = parse_args()
 
     if not os.path.exists(support_module_path):
         raise ValueError("Support module folder does not exist")
@@ -556,7 +578,7 @@ if __name__ == "__main__":
     if not os.path.exists(etc_folder):
         raise ValueError("The support module path must contain an etc folder")
 
-    builder2support = Builder2Support(support_module_path, arg_value_overrides)
+    builder2support = Builder2Support(support_module_path)
     # builder2support.dump_subst_file()
     builder2support.make_yaml_tree()
     if len(builder2support.yaml_tree["defs"]) > 0:

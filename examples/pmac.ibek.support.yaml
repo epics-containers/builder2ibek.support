@@ -752,17 +752,6 @@ defs:
           set to '#' to comment out alh lines
         default: None
 
-      - type: str
-        name: gda_name
-        description: |-
-          Name to export this as to GDA
-
-      - type: str
-        name: gda_desc
-        description: |-
-          Description to export this as to GDA
-        default: $(DESC)
-
     databases:
 
       - file: $(PMAC)/db/dls_pmac_cs_asyn_motor.template
@@ -1150,11 +1139,6 @@ defs:
         description: |-
           the same as pmacSetAxisScale (usually 1 but may be 32)
         default: 32
-
-      - type: str
-        name: gda_name
-        description: |-
-          GDA name
 
       - type: id
         name: name
@@ -1834,17 +1818,6 @@ defs:
         description: |-
           set to '#' to comment out alh lines
         default: None
-
-      - type: str
-        name: gda_name
-        description: |-
-          Name to export this as to GDA
-
-      - type: str
-        name: gda_desc
-        description: |-
-          Description to export this as to GDA
-        default: $(DESC)
 
       - type: str
         name: HOME
