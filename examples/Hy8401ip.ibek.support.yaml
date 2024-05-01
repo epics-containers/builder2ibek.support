@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://github.com/epics-containers/ibek/releases/download/1.2.0/ibek.support.schema.json
+
+module: Hy8401ip
+
+defs:
+
+  - name: Hy8401
+    description: |-
+      Hytec 8401 Analogue to Digital Converter (ADC).
+    args:
+
+      - type: object
+        name: carrier
+        description: |-
+          Carrier card
+
+      - type: int
+        name: ipslot
+        description: |-
+          IP slot in carrier
+
+      - type: int
+        name: cardid
+        description: |-
+          cardid?
+
+      - type: bool
+        name: intEnable
+        description: |-
+          Enable interrupts
+        default: false
+
+      - type: bool
+        name: externalClock
+        description: |-
+          Use external clock
+        default: false
+
+      - type: enum
+        name: clockRate
+        description: |-
+          Clock rate
+        default: 15
+        values:
+          500Hz:
+          2Hz:
+          100kHz:
+          20kHz:
+          50kHz:
+          1Hz:
+          5kHz:
+          20Hz:
+          50Hz:
+          2kHz:
+          200Hz:
+          100Hz:
+          5Hz:
+          10Hz:
+          1kHz:
+          10kHz:
+
+      - type: bool
+        name: inhibit
+        description: |-
+          Enable front panel inhibit signal
+        default: false
+
+      - type: int
+        name: sampleSize
+        description: |-
+          Number of samples for triggered capture
+        default: 0
+
+    pre_init:
+
+      - value: |
+          Hy8401ipConfigure({{cardid}}, {{IPACid}}, {{ipslot}}, {{vector}}, {{intEnable}}, 0, {{externalClock}}, {{clockRate}}, {{inhibit}}, 1, 1, {{sampleSize}})
+ # TODO - MISSING ARGS: IPACid, vector
