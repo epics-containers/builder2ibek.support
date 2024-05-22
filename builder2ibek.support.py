@@ -143,6 +143,10 @@ class ArgInfo:
             else:
                 description_str = "TODO: ADD DESCRIPTION"
 
+            def make_enum(value):
+                value = str(value).strip().strip('"')
+                return '"' + value + '"'
+
             if arg_name not in self.all_args:
                 new_yaml_arg = ordereddict()
                 new_yaml_arg["type"] = typ
@@ -152,7 +156,9 @@ class ArgInfo:
                     new_yaml_arg["default"] = default
                 if typ == "enum":
                     new_yaml_arg["values"] = {
-                        str(label): None for label in details.labels
+                        # put all enums in quotes to avoid YAML parsing issues
+                        make_enum(label): None
+                        for label in details.labels
                     }
                 # coerce type of args that have default strings which are ints or reals
                 if typ == "str" and default:
@@ -187,8 +193,6 @@ class ArgInfo:
             value = default or "ID_" + str(ArgInfo.arg_num)
         elif details.typ == str:
             typ = "str"
-            if default == "":
-                default = None
             value = default or name + "_STR"
         elif details.typ == int:
             typ = "int"
