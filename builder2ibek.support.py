@@ -285,11 +285,7 @@ class Builder2Support:
         classes = {}
         for builder_class in class_list:
             name = class_name_re.findall(str(builder_class))[0]
-            if (
-                hasattr(builder_class, "ArgInfo")
-                and not name.startswith("_")
-                and not name.endswith("Template")
-            ):
+            if hasattr(builder_class, "ArgInfo") and not name.startswith("_"):
                 classes[name] = builder_class
 
         return classes
