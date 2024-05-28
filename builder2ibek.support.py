@@ -145,7 +145,7 @@ class ArgInfo:
 
             def make_enum(value):
                 value = str(value).strip().strip('"')
-                return '"' + value + '"'
+                return value
 
             if arg_name not in self.all_args:
                 new_yaml_arg = ordereddict()
