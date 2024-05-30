@@ -25,12 +25,12 @@ ARGUMENT_NO:VALUE pairs. For example this is the command that works with a
 recent version of the pmac module:
 
 ```bash
-./builder2ibek.support.py /dls_sw/prod/R3.14.12.7/support/pmac/2-5-23beta1/ -o '14:A+B 474:A+B 801:1 805:1.0 804:1.0'
+./builder2ibek.support.py /dls_sw/prod/R3.14.12.7/support/pmac/2-5-23beta1/ /tmp/pmac.ibek.support.yaml 14:A+B 474:A+B 801:1 805:1.0 804:1.0
 ```
 
 And this for the tetramm:
 ```bash
-./builder2ibek.support.py /dls_sw/prod/R3.14.12.7/support/quadEM/9-4dls1  ../quadEM.ibek.support.yaml  -o'21:2 25:100'
+./builder2ibek.support.py /dls_sw/prod/R3.14.12.7/support/quadEM/9-4dls1  ../quadEM.ibek.support.yaml  21:2 25:100
 ```
 
 

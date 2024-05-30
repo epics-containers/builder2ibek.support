@@ -355,14 +355,11 @@ class Builder2Support:
 
                 print("\nDB Template %s :" % template)
 
-                if hasattr(first_substitution, "ArgInfo"):
-                    arginfo.add_arg_info(first_substitution.ArgInfo)
-                    # the DB Arg entries in the YAML are Dictionary entries with no value
-                    no_values = {k: None for k in arginfo.builder_args}
-                elif hasattr(first_substitution, "Arguments"):
-                    no_values = {k: None for k in first_substitution.Arguments}
-                else:
-                    no_values = {"TODO": "No args for this template"}
+                # the DB Arg entries in the YAML are Dictionary entries with no value
+                print("pattern {" + ", ".join(first_substitution.Arguments) + "}")
+                no_values = ordereddict()
+                for key in first_substitution.Arguments:
+                    no_values[key] = None
 
                 database.insert(3, "args", no_values)
             else:
