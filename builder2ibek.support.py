@@ -155,11 +155,9 @@ class ArgInfo:
                 if default is not None:
                     new_yaml_arg["default"] = default
                 if typ == "enum":
-                    new_yaml_arg["values"] = {
-                        # put all enums in quotes to avoid YAML parsing issues
-                        make_enum(label): None
-                        for label in details.labels
-                    }
+                    new_yaml_arg["values"] = ordereddict()
+                    for label in details.labels:
+                        new_yaml_arg["values"][make_enum(label)] = None
                 # coerce type of args that have default strings which are ints or reals
                 if typ == "str" and default:
                     try:
