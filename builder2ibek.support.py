@@ -33,7 +33,7 @@ from iocbuilder import ParseEtcArgs, configure, device  # noqa: E402 isort:skip
 from iocbuilder.recordset import RecordsSubstitutionSet  # noqa: E402 isort:skip
 from mock import MagicMock  # noqa: E402 isort:skip
 from ruamel.yaml import YAML  # noqa: E402 isort:skip
-from ruamel.yaml.comments import CommentedMap as ordereddict  # noqa: E402 isort:skip
+from ruamel.yaml.comments import CommentedMap  # noqa: E402 isort:skip
 
 
 # regular expressions for extracting information from builder classes
@@ -77,10 +77,10 @@ class ArgInfo:
         # unique name for the builder class
         self.unique_name = unique_name
 
-        # list of ordereddict args to be used in the YAML
-        self.yaml_args = []
+        # CommentedMap of CommentedMap args to be used in the YAML
+        self.yaml_args = CommentedMap()
         # the root of the definition in yaml that holds above yaml_args
-        self.yaml_defs = ordereddict()
+        self.yaml_defs = CommentedMap()
         # set of args and values to use for instantiating a builder object
         self.builder_args = {}
         # list of all the arg names only (across multiple add_arg_info)
@@ -97,7 +97,7 @@ class ArgInfo:
         print(name)
         self.yaml_defs["name"] = self.name_re.findall(name)[0]
         self.yaml_defs["description"] = PreservedScalarString(desc)
-        self.yaml_defs["args"] = self.yaml_args
+        self.yaml_defs["params"] = self.yaml_args
 
     def add_arg_info(self, arginfo):
         """
@@ -148,14 +148,13 @@ class ArgInfo:
                 return value
 
             if arg_name not in self.all_args:
-                new_yaml_arg = ordereddict()
+                new_yaml_arg = CommentedMap()
                 new_yaml_arg["type"] = typ
-                new_yaml_arg["name"] = arg_name
                 new_yaml_arg["description"] = PreservedScalarString(description_str)
                 if default is not None:
                     new_yaml_arg["default"] = default
                 if typ == "enum":
-                    new_yaml_arg["values"] = ordereddict()
+                    new_yaml_arg["values"] = CommentedMap()
                     for label in details.labels:
                         new_yaml_arg["values"][make_enum(label)] = None
                 # coerce type of args that have default strings which are ints or reals
@@ -172,7 +171,7 @@ class ArgInfo:
                         except ValueError:
                             pass
 
-                self.yaml_args.append(new_yaml_arg)
+                self.yaml_args[arg_name] = new_yaml_arg
                 self.all_args.append(arg_name)
 
     def make_arg(self, name, details, default=None):
@@ -245,12 +244,22 @@ class ArgInfo:
 
 
 class Builder2Support:
-    def __init__(self, support_module_path):
+    def __init__(self, support_module_path, override_file):
         self.support_module_path = support_module_path
-        self.yaml_tree = ordereddict()
+
         self.builder_module, self.builder_classes = self._configure()
         self.dbds = set()
         self.libs = set()
+
+        if override_file:
+            if not os.path.exists(override_file):
+                raise ValueError("The override file does not exist")
+            with open(override_file) as f:
+                # start by reading in the override file
+                self.yaml_tree = YAML().load(f)
+        else:
+            # start with an empty YAML tree
+            self.yaml_tree = CommentedMap()
 
     def _configure(self):
         """
@@ -345,7 +354,7 @@ class Builder2Support:
         while all_substitutions:
             template, substitutions = all_substitutions.popitem()
             if len(substitutions[1]) > 0:
-                database = ordereddict()
+                database = CommentedMap()
                 databases.append(database)
                 first_substitution = substitutions[1][0]
 
@@ -355,9 +364,15 @@ class Builder2Support:
 
                 # the DB Arg entries in the YAML are Dictionary entries with no value
                 print("pattern {" + ", ".join(first_substitution.Arguments) + "}")
-                no_values = ordereddict()
-                for key in first_substitution.Arguments:
-                    no_values[key] = None
+
+                no_values = CommentedMap()
+                # if the db arguments exactly match the definition parameters
+                # then we can use the single regex .* to match all arguments
+                if set(first_substitution.Arguments) == set(arginfo.all_args):
+                    no_values[".*"] = None
+                else:
+                    for key in first_substitution.Arguments:
+                        no_values[key] = None
 
                 database.insert(3, "args", no_values)
             else:
@@ -381,7 +396,7 @@ class Builder2Support:
         func = getattr(builder_object, func_name, None)
         if func:
             # prepare the YAML for the script entry
-            script_item = ordereddict()
+            script_item = CommentedMap()
             if when:
                 script_item["when"] = when
 
@@ -444,13 +459,37 @@ class Builder2Support:
         if len(post_init) > 0:
             arginfo.yaml_defs["post_init"] = post_init
 
+    def start_node(self, node_path, init_val=None):
+        """
+        start a new node in the YAML tree, unless it already exists - this is used
+        when adding any node in the tree, because the tree is initialised by an
+        override file that may have already defined some of the nodes.
+
+        args:
+            node_path: the path to the node in the tree, separated by "."
+            init_val: the initial value for the node
+        """
+
+        # a new CommentedMap is the typical starting value for a node
+        init_val = CommentedMap() if init_val is None else init_val
+
+        path = node_path.split(".")
+        node = self.yaml_tree
+
+        for p in path:
+            if p not in node:
+                node[p] = init_val
+                break
+            node = node[p]
+
     def make_yaml_tree(self):
         """
         Main entry point: generate the ibek YAML object graph from
         builder classes.
         """
-        self.yaml_tree["module"] = self.builder_module.Name()
-        self.yaml_tree["defs"] = []
+        # set up the root level node of the YAML tree
+        self.start_node("module", self.builder_module.Name())
+        self.start_node("defs", [])
 
         for name, builder_class in self.builder_classes.items():
             # make an instance of the builder class and an ArgInfo that
@@ -467,7 +506,75 @@ class Builder2Support:
             # for them
             self.parse_initialise_functions(builder_object, arginfo)
 
-            self.yaml_tree["defs"].append(arginfo.yaml_defs)
+            self.merge_defs(arginfo.yaml_defs)
+
+    def merge_defs(self, defn):
+        """
+        add a new definition to the YAML tree but merge it into the existing one
+        from the overrides file if that already exists
+        """
+
+        # TODO TODO this is just an insert right now - need to merge
+        self.yaml_tree["defs"].append(defn)
+
+    def make_aliases(self):
+        """
+        Remove parameters that can be aliased to the shared anchors
+        and insert aliases in place of the removed parameters.
+        """
+
+        shared = self.yaml_tree["shared"]
+        if not shared:
+            return
+
+        # create an index of all the shared parameters names back to their anchor
+        # and also an index of all the anchor names back to their anchor
+        params_index = {}
+        anchors_index = {}
+        anchors_alias_index = {}
+        for anchor_params in shared:
+            for anchor_name, anchor_params in anchor_params.items():
+                for param_name, _ in anchor_params.items():
+                    assert (
+                        param_name not in params_index
+                    ), "Duplicate parameters {} in shared".format(param_name)
+                    params_index[param_name] = anchor_params
+                    anchors_index[param_name] = anchor_name
+                    anchors_alias_index[anchor_name] = anchor_params
+
+        # iterate over all the defs and look for any parameters that can be aliased
+        # collect the list of aliases to substitute in place of the parameters
+        for defn in self.yaml_tree["defs"]:
+            defn_params = defn["params"]
+            aliases = []
+            for param_name in defn_params.keys():
+                # see if there is an anchor that has this param
+                if param_name in params_index:
+                    # do we already have an alias for this anchor?
+                    if anchors_index[param_name] not in aliases:
+                        # not yet so ...
+                        # make sure this def wants all the params in the anchor
+                        anchor_params = params_index[param_name]
+                        if set(anchor_params.keys()).issubset(defn_params.keys()):
+                            # yes - add this anchor to the list of aliases
+                            aliases.append(anchors_index[param_name])
+                        else:
+                            # no - can't alias this parameter - go to next one
+                            continue
+            if aliases:
+                print("def: %s, aliases: %s" % (defn["name"], aliases))
+                # now delete all the aliased parameters UNLESS they have a
+                # different default value to the anchor
+                delete_me = []
+                for alias in aliases:
+                    for name, val in anchors_alias_index[alias].items():
+                        anchor_default = val.get("default")
+                        defn_default = defn_params[name].get("default")
+                        if anchor_default == defn_default:
+                            delete_me.append(name)
+                for name in delete_me:
+                    del defn_params[name]
+                defn_params.insert(0, "<<", str(["*" + a for a in aliases]))
 
     def write_yaml_tree(self, filename):
         """
@@ -496,8 +603,7 @@ class Builder2Support:
 
         # add support yaml schema
         self.yaml_tree.yaml_add_eol_comment(
-            "yaml-language-server: $schema=https://github.com/epics-"
-            "containers/ibek/releases/download/1.2.0/ibek.support.schema.json",
+            "yaml-language-server: $schema=../schemas/ibek.support.schema.json",
             column=0,
         )
 
@@ -556,18 +662,16 @@ def parse_args():
         ),
         nargs="*",
     )
+    parser.add_argument(
+        "-o", "--override", help="override file for the output YAML", default=None
+    )
     args = parser.parse_args()
 
-    yaml_file = args.yaml
-
-    return args.path, yaml_file
+    return args.path, args.yaml, args.override
 
 
 if __name__ == "__main__":
-    (
-        support_module_path,
-        filename,
-    ) = parse_args()
+    (support_module_path, filename, override_file) = parse_args()
 
     if not os.path.exists(support_module_path):
         raise ValueError("Support module folder does not exist")
@@ -575,9 +679,11 @@ if __name__ == "__main__":
     if not os.path.exists(etc_folder):
         raise ValueError("The support module path must contain an etc folder")
 
-    builder2support = Builder2Support(support_module_path)
+    builder2support = Builder2Support(support_module_path, override_file)
     # builder2support.dump_subst_file()
     builder2support.make_yaml_tree()
+    # remove parameters that can be aliased to the shared anchors, insert aliases
+    builder2support.make_aliases()
     if len(builder2support.yaml_tree["defs"]) > 0:
         builder2support.write_yaml_tree(filename)
     else:
