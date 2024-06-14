@@ -54,6 +54,7 @@ macro_to_jinja_re = r"{{\1}}"
 
 MISSING = "# TODO - MISSING ARGS: "
 NON_PRINT = "\n # WARNING - non print commands in Initialise not parsed"
+DELETE_PARAMS = ["gda_name", "gda_desc", "EMPTY"]
 
 # global argument override dictionaries
 arg_value_overrides = {}
@@ -362,16 +363,26 @@ class Builder2Support:
 
                 print("\nDB Template %s :" % template)
 
+                useful_args = first_substitution.Arguments[:]
+                for name in DELETE_PARAMS:
+                    if name in useful_args:
+                        useful_args.remove(name)
+
                 # the DB Arg entries in the YAML are Dictionary entries with no value
-                print("pattern {" + ", ".join(first_substitution.Arguments) + "}")
+                print("pattern {" + ", ".join(useful_args) + "}")
 
                 no_values = CommentedMap()
                 # if the db arguments exactly match the definition parameters
                 # then we can use the single regex .* to match all arguments
-                if set(first_substitution.Arguments) == set(arginfo.all_args):
+                if set(useful_args) == set(arginfo.all_args):
                     no_values[".*"] = None
                 else:
-                    for key in first_substitution.Arguments:
+                    print(
+                        "def params don't match db_args: "
+                        + str(set(arginfo.all_args) - set(useful_args))
+                        + str(set(useful_args) - set(arginfo.all_args)),
+                    )
+                    for key in useful_args:
                         no_values[key] = None
 
                 database.insert(3, "args", no_values)
@@ -574,7 +585,8 @@ class Builder2Support:
                             delete_me.append(name)
                 for name in delete_me:
                     del defn_params[name]
-                defn_params.insert(0, "<<", str(["*" + a for a in aliases]))
+                alias_str = ", ".join(["*" + a for a in aliases])
+                defn_params.insert(0, "<<", alias_str)
 
     def write_yaml_tree(self, filename):
         """
@@ -595,6 +607,8 @@ class Builder2Support:
                 "      - value:",
             ]:
                 yaml = re.sub(r"(\n%s)" % field, "\n\\g<1>", yaml)
+            # correct aliases as the yaml write made them all strings
+            yaml = re.sub(r"'<<': '(.*)'", r"<<: [\1]", yaml)
             return yaml
 
         yaml = YAML()
