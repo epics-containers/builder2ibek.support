@@ -609,6 +609,8 @@ class Builder2Support:
                 yaml = re.sub(r"(\n%s)" % field, "\n\\g<1>", yaml)
             # correct aliases as the yaml write made them all strings
             yaml = re.sub(r"'<<': '(.*)'", r"<<: [\1]", yaml)
+            # also correct the anchors at the top of the file
+            yaml = re.sub(r"  - (.*):\n", r"  - \1: &\1\n", yaml)
             return yaml
 
         yaml = YAML()
@@ -623,6 +625,7 @@ class Builder2Support:
 
         print("\nWriting YAML output to %s ..." % filename)
         with open(filename, "wb") as f:
+            yaml.width = 8000  # don't do wrapping of long lines
             yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.dump(self.yaml_tree, f, transform=tidy_up)
 
