@@ -98,7 +98,7 @@ class ArgInfo:
         print(name)
         self.yaml_defs["name"] = self.name_re.findall(name)[0]
         self.yaml_defs["description"] = PreservedScalarString(desc)
-        self.yaml_defs["params"] = self.yaml_args
+        self.yaml_defs["parameters"] = self.yaml_args
 
     def add_arg_info(self, arginfo):
         """
@@ -146,7 +146,7 @@ class ArgInfo:
 
             def make_enum(value):
                 value = str(value).strip().strip('"')
-                return value
+                return str(value)
 
             if arg_name not in self.all_args:
                 new_yaml_arg = CommentedMap()
@@ -159,6 +159,8 @@ class ArgInfo:
                     for label in details.labels:
                         new_yaml_arg["values"][make_enum(label)] = None
                 # coerce type of args that have default strings which are ints or reals
+                if arg_name == "tag_idx":
+                    print("XXX tag_idx {default}")
                 if typ == "str" and default:
                     try:
                         i = int(default)
@@ -500,7 +502,7 @@ class Builder2Support:
         """
         # set up the root level node of the YAML tree
         self.start_node("module", self.builder_module.Name())
-        self.start_node("defs", [])
+        self.start_node("entity_models", [])
 
         for name, builder_class in self.builder_classes.items():
             # make an instance of the builder class and an ArgInfo that
@@ -526,7 +528,7 @@ class Builder2Support:
         """
 
         # TODO TODO this is just an insert right now - need to merge
-        self.yaml_tree["defs"].append(defn)
+        self.yaml_tree["entity_models"].append(defn)
 
     def make_aliases(self):
         """
@@ -534,9 +536,10 @@ class Builder2Support:
         and insert aliases in place of the removed parameters.
         """
 
-        shared = self.yaml_tree["shared"]
-        if not shared:
+        if "shared" not in self.yaml_tree:
             return
+
+        shared = self.yaml_tree["shared"]
 
         # create an index of all the shared parameters names back to their anchor
         # and also an index of all the anchor names back to their anchor
@@ -555,8 +558,8 @@ class Builder2Support:
 
         # iterate over all the defs and look for any parameters that can be aliased
         # collect the list of aliases to substitute in place of the parameters
-        for defn in self.yaml_tree["defs"]:
-            defn_params = defn["params"]
+        for defn in self.yaml_tree["entity_models"]:
+            defn_params = defn["parameters"]
             aliases = []
             for param_name in defn_params.keys():
                 # see if there is an anchor that has this param
@@ -601,7 +604,7 @@ class Builder2Support:
                 "    pre_init:",
                 "    post_init:",
                 "module",
-                "defs",
+                "entity_models",
                 "      - type:",
                 "      - file:",
                 "      - value:",
@@ -611,6 +614,8 @@ class Builder2Support:
             yaml = re.sub(r"'<<': '(.*)'", r"<<: [\1]", yaml)
             # also correct the anchors at the top of the file
             yaml = re.sub(r"  - (.*):\n", r"  - \1: &\1\n", yaml)
+            # for some reason we get unquoted 08 09 in enums - fix that
+            yaml = re.sub(r"( +)(0\d*):", r"\1'\2':", yaml)
             return yaml
 
         yaml = YAML()
@@ -701,7 +706,7 @@ if __name__ == "__main__":
     builder2support.make_yaml_tree()
     # remove parameters that can be aliased to the shared anchors, insert aliases
     builder2support.make_aliases()
-    if len(builder2support.yaml_tree["defs"]) > 0:
+    if len(builder2support.yaml_tree["entity_models"]) > 0:
         builder2support.write_yaml_tree(filename)
     else:
         print("\nNo definitions - no YAML file needed for %s" % support_module_path)
