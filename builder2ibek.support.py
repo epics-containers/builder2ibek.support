@@ -526,8 +526,11 @@ class Builder2Support:
         add a new definition to the YAML tree but merge it into the existing one
         from the overrides file if that already exists
         """
-
-        # TODO TODO this is just an insert right now - need to merge
+        entity_name = defn["name"]
+        for existing_def in self.yaml_tree["entity_models"]:
+            if existing_def["name"] == entity_name:
+                print("Skipping %s already supplied by override file" % entity_name)
+                return
         self.yaml_tree["entity_models"].append(defn)
 
     def make_aliases(self):
