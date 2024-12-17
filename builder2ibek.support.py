@@ -619,6 +619,10 @@ class Builder2Support:
             yaml = re.sub(r"  - (.*):\n", r"  - \1: &\1\n", yaml)
             # for some reason we get unquoted 08 09 in enums - fix that
             yaml = re.sub(r"( +)(0\d*):", r"\1'\2':", yaml)
+            # remove inline values for dictionaries
+            # restoring e.g. submodule: "N, A, B: {{device}}.{{name}}"
+            # from           submodule: "N: !!null , A: !!null , B: {{device}}.{{name}}"
+            yaml = re.sub(r": !!null ''", r"", yaml)
             return yaml
 
         yaml = YAML()
