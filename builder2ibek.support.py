@@ -35,7 +35,6 @@ from mock import MagicMock  # noqa: E402 isort:skip
 from ruamel.yaml import YAML  # noqa: E402 isort:skip
 from ruamel.yaml.comments import CommentedMap  # noqa: E402 isort:skip
 
-
 # regular expressions for extracting information from builder classes
 class_name_re = re.compile(r"(?:type|class) '(.*)'")
 is_int_re = re.compile(r"[-+]?\d+$")
@@ -59,6 +58,7 @@ DELETE_PARAMS = ["gda_name", "gda_desc", "EMPTY"]
 # global argument override dictionaries
 arg_value_overrides = {}
 mock_overrides = {}
+parameter_type_overrides = {}
 
 
 class ArgInfo:
@@ -77,6 +77,8 @@ class ArgInfo:
         """
         # unique name for the builder class
         self.unique_name = unique_name
+        name_parts = name.split(".")
+        self.name = name_parts[-1]
 
         # CommentedMap of CommentedMap args to be used in the YAML
         self.yaml_args = CommentedMap()
@@ -173,6 +175,13 @@ class ArgInfo:
                             new_yaml_arg["type"] = "float"
                         except ValueError:
                             pass
+                entity_param = self.name + "." + arg_name
+                if entity_param in parameter_type_overrides:
+                    typ = parameter_type_overrides[entity_param]
+                    if typ == "int":
+                        new_yaml_arg["type"] = "int"
+                    elif typ == "float":
+                        new_yaml_arg["type"] = "float"
 
                 self.yaml_args[arg_name] = new_yaml_arg
                 self.all_args.append(arg_name)
@@ -248,6 +257,7 @@ class ArgInfo:
 
 class Builder2Support:
     def __init__(self, support_module_path, override_file):
+        global parameter_type_overrides
         self.support_module_path = support_module_path
 
         self.builder_module, self.builder_classes = self._configure()
@@ -260,6 +270,10 @@ class Builder2Support:
             with open(override_file) as f:
                 # start by reading in the override file
                 self.yaml_tree = YAML().load(f)
+                # check for a parameter_types override field
+                if "parameter_types" in self.yaml_tree:
+                    parameter_type_overrides = self.yaml_tree.pop("parameter_types")
+                    print("Parameter types override: %s" % parameter_type_overrides)
         else:
             # start with an empty YAML tree
             self.yaml_tree = CommentedMap()
@@ -552,9 +566,9 @@ class Builder2Support:
         for anchor_params in shared:
             for anchor_name, anchor_params in anchor_params.items():
                 for param_name, _ in anchor_params.items():
-                    assert (
-                        param_name not in params_index
-                    ), "Duplicate parameters {} in shared".format(param_name)
+                    assert param_name not in params_index, (
+                        "Duplicate parameters {} in shared".format(param_name)
+                    )
                     params_index[param_name] = anchor_params
                     anchors_index[param_name] = anchor_name
                     anchors_alias_index[anchor_name] = anchor_params
